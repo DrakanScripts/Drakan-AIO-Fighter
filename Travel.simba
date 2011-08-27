@@ -1,0 +1,123 @@
+const
+  LOC_LOST = -1;
+  LOC_LUMBRIDGE = 0;
+  LOC_LUMBRIDGE_VILLAGE = 1;
+  LOC_TRAINERS = 2;
+
+function GetLocation: Integer;
+begin
+  Result := LOC_LOST;
+
+  if(R_SelfInBox(IntToBox(3217, 3227, 3225, 3209)))then
+  begin
+    Result := LOC_LUMBRIDGE;
+    Exit;
+  end;
+
+  if(R_SelfInBox(IntToBox(3204, 3254, 3214, 3250)))then
+  begin
+    Result := LOC_TRAINERS;
+    Exit;
+  end;
+
+  if(R_SelfInBox(IntToBox(3188, 3258, 3221, 3237)))then
+  begin
+    Result := LOC_LUMBRIDGE_VILLAGE;
+    Exit;
+  end;
+end;
+
+function LoadPath(Which: Integer): TTileArray;
+begin
+  case Which of
+    LOC_TRAINERS:
+      Result := [
+        Point(3222, 3218), Point(3229, 3218), Point(3235, 3223),
+        Point(3232, 3228), Point(3226, 3234), Point(3223, 3238),
+        Point(3221, 3242), Point(3217, 3246), Point(3211, 3246),
+        Point(3204, 3247), Point(3199, 3245), Point(3195, 3248),
+        Point(3201, 3249), Point(3206, 3251), Point(3208, 3252)
+      ];
+    else
+      Debug('Invalid path index.', 'LoadPath');
+  end;
+end;
+
+function TravelTo_Home: Boolean;
+var
+  SpellBook: TInterfaceChild;
+  Animated: Boolean;
+  X, Y, T: Integer;
+begin
+  Result := GetLocation = LOC_LUMBRIDGE;
+  if Result then
+    Exit;
+  Debug('Teleporting to Lumbridge.', 'Travel');
+  if not R_GameTab(RTAB_SPELLBOOK)then
+    Exit;
+  SpellBook := R_GetInterfaceChild(192, 24);
+  while not FindColorTolerance(X, Y, 14724502, SpellBook.Bounds.X1, SpellBook.Bounds.Y1,
+                               SpellBook.Bounds.X2, SpellBook.Bounds.Y2, 10)do
+    Wait(100+Random(100));
+  Wait(200+Random(600));
+  R_ClickInterface(SpellBook, 1);
+
+  MarkTime(T);
+  while not R_Animating do
+  begin
+    Wait(300+Random(100));
+    if(TimeFromMark(T) > 5000)then
+      Break;
+  end;
+
+  if(TimeFromMark(T) <= 5000)then
+    Animated := True;
+
+  MarkTime(T);
+  while R_Animating do
+  begin
+    Wait(600+Random(100));
+    if(TimeFromMark(T) > 10000)then
+      Break;
+  end;
+
+  if(Animated)then
+  begin
+    MarkTime(T);
+    while not(GetLocation = LOC_LUMBRIDGE)do
+    begin
+      Wait(600+Random(100));
+      if(TimeFromMark(T) > 5000)then
+        Break;
+    end;
+  end;
+
+  Result := GetLocation = LOC_LUMBRIDGE;
+  case Result of
+    True: Debug('Landed in Lumbridge!', 'Travel');
+    False: Debug('Failed to teleport to Lumbridge.', 'Travel');
+  end;
+end;
+
+function TravelTo_Trainers: boolean;
+var
+  Path: TTileArray;
+begin
+  Result := GetLocation = LOC_TRAINERS;
+  if Result then
+    Exit;
+
+  Debug('Traveling to the trainers!', 'Travel');
+  if not(GetLocation = LOC_LUMBRIDGE_VILLAGE)then
+    TravelTo_Home;
+
+  Path := LoadPath(LOC_TRAINERS);
+  R_WalkPathEx(Path, 2, 1, False);
+
+  Result := GetLocation = LOC_TRAINERS;
+
+  case Result of
+    true: Debug('Arrived at the trainers!', 'Travel');
+    false: Debug('Failed to reach the trainers.', 'Travel');
+  end;
+end;

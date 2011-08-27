@@ -1,0 +1,33 @@
+program ReflectionScript;
+{$DEFINE SMART}
+{$i SRL/SRL.scar}
+{$i Reflection/Reflection.simba}
+
+{$i Debug.simba}
+{$i Players.simba}
+{$i Travel.simba}
+
+procedure Setup;
+begin
+  Smart_Server := 35
+  Smart_Signed := True;
+  Smart_SuperDetail := False;
+
+  SetupReflection;
+  DeclarePlayers;
+  Writeln('Ready');
+end;
+
+function Travel(Destination: Integer): Boolean;
+begin
+  Result := False;
+  if not R_LoggedIn then
+    Exit;
+
+  TravelTo_Trainers;
+end;
+
+begin
+  Setup;
+  Travel(LOC_TRAINERS);
+end.

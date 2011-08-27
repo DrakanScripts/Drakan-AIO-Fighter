@@ -1,0 +1,17 @@
+(*=========== Setup your players! ===========*)
+procedure DeclarePlayers;
+begin
+  HowManyPlayers := 1;
+  CurrentPlayer := 0;
+  NumberOfPlayers(HowManyPlayers);
+
+  with Players[0] do
+  begin
+    Name        := '';
+    Pass        := '';
+    Nick        := '';
+    Member      := True;
+    Active      := True;
+  end;
+end;
+(*===========================================*)

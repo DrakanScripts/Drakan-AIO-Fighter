@@ -1,0 +1,8 @@
+const
+  UseDebug = True;
+
+procedure Debug(Message, Topic: String);
+begin
+  if(UseDebug)then
+    Writeln('['+Topic+'] '+Message);
+end;
