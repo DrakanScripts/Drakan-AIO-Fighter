@@ -1,10 +1,13 @@
 const
   LOC_LOST = -1;
   LOC_LUMBRIDGE = 0;
-  LOC_LUMBRIDGE_VILLAGE = 1;
-  LOC_LUMBRIDGE_STORE = 2;
+  LOC_LUMBRIDGE_STORE = 1;
+  LOC_LUMBRIDGE_VILLAGE = 2;
+  LOC_LUMBRIDGE_GOBLINS = 3;
+  LOC_LUMBRIDGE_GOBLIN_AREA = 4;
 
   PATH_LUMBRIDGE_STORE = 0;
+  PATH_LUMBRIDGE_GOBLINS = 1;
 
 function GetLocation: Integer;
 begin
@@ -27,6 +30,19 @@ begin
     Result := LOC_LUMBRIDGE_VILLAGE;
     Exit;
   end;
+
+  if(R_SelfInBox(IntToBox(3247, 3241, 3255, 3236)))then
+  begin
+    Result := LOC_LUMBRIDGE_GOBLINS;
+    Exit;
+  end;
+
+  if(R_SelfInBox(IntToBox(3242, 3248, 3264, 3226)))then
+  begin
+    Result := LOC_LUMBRIDGE_GOBLIN_AREA;
+    Exit;
+  end;
+
 end;
 
 function OnPath(Path: TTileArray): Boolean;
@@ -124,6 +140,7 @@ begin
       Break;
   end;
 
+  R_WaitToMove(1000+Random(300));
   R_WaitToStopMoving(60000);
   Result := (R_DistanceFromTile(Path[High(Path)]) <= 5);
 end;
@@ -135,6 +152,11 @@ begin
       Result := [
         Point(3223, 3219), Point(3228, 3230), Point(3225, 3238),
         Point(3214, 3242)
+      ];
+    PATH_LUMBRIDGE_GOBLINS:
+      Result := [
+        Point(3222, 3219), Point(3238, 3225), Point(3252, 3225),
+        Point(3251, 3239)
       ];
     else
       Debug('Invalid path index.', 'LoadPath');
@@ -190,6 +212,8 @@ begin
     end;
   end;
 
+  R_SetCameraAngle(100);
+
   Result := GetLocation = LOC_LUMBRIDGE;
   case Result of
     True: Debug('Landed in Lumbridge!', 'Travel');
@@ -197,7 +221,7 @@ begin
   end;
 end;
 
-function TravelTo_LumbridgeStore: boolean;
+function TravelTo_LumbridgeStore: Boolean;
 var
   Path: TTileArray;
 begin
@@ -222,14 +246,52 @@ begin
   end;
 end;
 
+function TravelTo_LumbridgeGoblins: Boolean;
+var
+  Path: TTileArray;
+begin
+  Result := GetLocation = LOC_LUMBRIDGE_GOBLINS;
+  if Result then
+    Exit;
+
+  Path := LoadNodes(PATH_LUMBRIDGE_GOBLINS);
+
+  Debug('Traveling to the lumbridge goblins!', 'Travel');
+  if not(GetLocation = LOC_LUMBRIDGE_GOBLIN_AREA)then
+    if not(OnPath(Path))then
+      TravelTo_Home;
+
+  WalkNodes(Path);
+
+  Result := GetLocation = LOC_LUMBRIDGE_GOBLINS;
+
+  case Result of
+    true: Debug('Arrived at the goblins in Lumbridge!', 'Travel');
+    false: Debug('Failed to reach the goblins in Lumbridge.', 'Travel');
+  end;
+end;
+
 function Travel(Destination: Integer): Boolean;
+var
+  TravelFunction: function: Boolean;
 begin
   Result := False;
   if not R_LoggedIn then
     Exit;
 
   case Destination of
-    LOC_LUMBRIDGE: Result := TravelTo_Home;
-    LOC_LUMBRIDGE_STORE: Result := TravelTo_LumbridgeStore;
+    LOC_LUMBRIDGE: TravelFunction := @TravelTo_Home;
+    LOC_LUMBRIDGE_STORE: TravelFunction := @TravelTo_LumbridgeStore;
+    LOC_LUMBRIDGE_GOBLINS: TravelFunction := @TravelTo_LumbridgeGoblins;
+    else
+      TravelFunction := nil;
+  end;
+
+  if(TravelFunction <> nil)then
+  begin
+    Result := TravelFunction();
+    if not Result then
+      TravelTo_Home;
+    Result := TravelFunction();
   end;
 end;

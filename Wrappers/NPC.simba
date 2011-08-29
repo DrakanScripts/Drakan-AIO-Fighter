@@ -1,0 +1,94 @@
+type
+  TOpenNPC = record
+    Obj, NPCDef: Integer;
+    ID, Level: Integer;
+    Name: String;
+    Tile: TTile;
+  end;
+  TOpenNPCArray = array of TOpenNPC;
+
+function NPC_Create(Reference: Integer): TOpenNPC;
+begin
+  with Result do
+  begin
+    Obj := Reference;
+    NPCDef := 0;
+    ID := -1;
+    Level := -1;
+    Name := '';
+    Tile := Point(-1, -1);
+  end;
+end;
+
+procedure NPC_Free(NPC: TOpenNPC);
+begin
+  if not SmartIsNull(NPC.Obj)then
+    SmartFreeObject(NPC.Obj);
+  if not SmartIsNull(NPC.NPCDef)then
+    SmartFreeObject(NPC.NPCDef);
+end;
+
+//functions under the renderable class.
+function NPC_GetPos(NPC: TOpenNPC): TTile;
+begin
+  if(NPC.Tile = Point(-1, -1))then
+  begin
+    NPC.Tile.X := SmartGetFieldInt(0, hook_static_BaseX) + (SmartGetFieldInt(NPC.Obj, hook_animable_PixelX) shr 9);
+    NPC.Tile.Y := SmartGetFieldInt(0, hook_static_BaseY) + (SmartGetFieldInt(NPC.Obj, hook_animable_PixelY) shr 9);
+  end;
+  Result := NPC.Tile;
+end;
+//////////////////////////////////////
+
+
+
+//functions under the NPC Class.
+function NPC_GetNPCDef(NPC: TOpenNPC): Integer;
+begin
+  if SmartIsNull(NPC.NPCDef)then
+    NPC.NPCDef := SmartGetFieldObject(NPC.Obj, hook_npc_NPCDef);
+  Result := NPC.NPCDef;
+end;
+
+function NPC_GetLevel(NPC: TOpenNPC): Integer;
+begin
+  if(NPC.Level = -1)then
+    NPC.Level := SmartGetFieldInt(NPC.Obj, hook_npc_GetLevel);
+  Result := NPC.Level;
+end;
+/////////////////////////////////
+
+
+
+//function under the NPCDef class.
+function NPC_GetID(NPC: TOpenNPC): Integer;
+var
+  Def: Integer;
+begin
+  if(NPC.ID = -1)then
+  begin
+    Def := NPC_GetNPCDef(NPC);
+    NPC.ID := SmartGetFieldInt(Def, hook_npcdef_GetID);
+  end;
+  Result := NPC.ID;
+end;
+
+function NPC_GetName(NPC: TOpenNPC): String;
+var
+  Def: Integer;
+  Bytes: Integer;
+begin
+  Result := '';
+  if(NPC.Name = '')then
+  begin
+    Def := NPC_GetNPCDef(NPC);
+    Bytes := SmartGetFieldObject(Def, hook_npcdef_GetName);
+    if not SmartIsNull(Bytes)then
+    begin
+      NPC.Name := R_GetJavaString(Bytes, 512);
+      SmartFreeObject(Bytes);
+    end;
+  end;
+  Result := NPC.Name;
+end;
+//////////////////////////////////

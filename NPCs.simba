@@ -1,0 +1,63 @@
+function SortOpenNPCs(NPCs: TOpenNPCArray): TOpenNPCArray;
+var
+  i,i2, L: integer;
+  tpa: TPointArray;
+  Tile: TTile;
+begin
+  L := GetArrayLength(NPCs);
+  if L < 1 then Exit;
+  SetArrayLength(TPA, L);
+  SetArrayLength(Result, L);
+  for i := 0 to L-1 do
+    TPA[i] := NPC_GetPos(NPCs[i]);
+  SortTPAFrom(TPA, R_GetMyPos);
+  for i := 0 to L-1 do
+    for i2 := 0 to L-1 do
+    begin
+      Tile := NPC_GetPos(NPCs[i2]);
+      if (TPA[i].x=Tile.x) and (TPA[i].y=Tile.y) then
+        Result[i] := NPCs[i2];
+    end;
+end;
+
+function GetNPCs(IDs: TIntegerArray): TOpenNPCArray;
+var
+  NumNPCs, H, C, I: Integer;
+  TheNPCNode: Integer;
+  Temp: TOpenNPC;
+  NPCs: TOpenNPCArray;
+begin
+  SetLength(Result, 0);
+  NumNPCs := R_GetNPCCount;
+  if (NumNPCs < 1) then
+    Exit;
+
+  C := 0;
+  SetLength(NPCs, NumNPCs);
+  H := NumNPCs-1;
+  for I := 0 to H do
+  begin
+    TheNPCNode := SmartGetFieldArrayObject(0, hook_static_NPCNodes, I);
+    Temp := NPC_Create(SmartGetFieldObject(TheNPCNode, hook_npcnode_GetNPC));
+    SmartFreeObject(TheNPCNode);
+
+    if not InIntArray(IDs, NPC_GetID(Temp))then
+    begin
+      NPC_Free(Temp);
+      Continue;
+    end;
+
+    NPCs[C] := Temp;
+    Inc(C);
+  end;
+  SetLength(NPCs, C);
+  Result := SortOpenNPCs(NPCs);
+end;
+
+procedure FreeOpenNPCS(NPCs: TOpenNPCArray);
+var
+  I: Integer;
+begin
+  for I := 0 to High(NPCs)do
+    NPC_Free(NPCs[I]);
+end;

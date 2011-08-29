@@ -6,6 +6,8 @@ program ReflectionScript;
 {$i Debug.simba}
 {$i Players.simba}
 {$i Travel.simba}
+{$i Wrappers/NPC.simba}
+{$i NPCs.simba}
 
 procedure Setup;
 begin
@@ -17,8 +19,16 @@ begin
   DeclarePlayers;
   Writeln('Ready');
 end;
+   //7870
+var
+  NPCs: TOpenNPCArray;
+  T: Integer;
 
 begin
   Setup;
-  Writeln(Travel(LOC_LUMBRIDGE_STORE));
+  T := GetSystemTime;
+  NPCs := GetNPCs([7870]);
+  T := GetSystemTime - T;
+  Writeln('We have found '+ToStr(Length(NPCs))+' NPCs in '+ToStr(T)+' milliseconds.');
+  FreeOpenNPCs(NPCs);
 end.
