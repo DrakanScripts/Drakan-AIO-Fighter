@@ -18,16 +18,7 @@ begin
   Writeln('Ready');
 end;
 
-function Travel(Destination: Integer): Boolean;
-begin
-  Result := False;
-  if not R_LoggedIn then
-    Exit;
-
-  TravelTo_Trainers;
-end;
-
 begin
   Setup;
-  Travel(LOC_TRAINERS);
+  Writeln(Travel(LOC_LUMBRIDGE_STORE));
 end.

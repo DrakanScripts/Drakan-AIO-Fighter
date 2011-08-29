@@ -2,7 +2,9 @@ const
   LOC_LOST = -1;
   LOC_LUMBRIDGE = 0;
   LOC_LUMBRIDGE_VILLAGE = 1;
-  LOC_TRAINERS = 2;
+  LOC_LUMBRIDGE_STORE = 2;
+
+  PATH_LUMBRIDGE_STORE = 0;
 
 function GetLocation: Integer;
 begin
@@ -14,9 +16,9 @@ begin
     Exit;
   end;
 
-  if(R_SelfInBox(IntToBox(3204, 3254, 3214, 3250)))then
+  if(R_SelfInBox(IntToBox(3212, 3243, 3218, 3239)))then
   begin
-    Result := LOC_TRAINERS;
+    Result := LOC_LUMBRIDGE_STORE;
     Exit;
   end;
 
@@ -27,16 +29,112 @@ begin
   end;
 end;
 
-function LoadPath(Which: Integer): TTileArray;
+function OnPath(Path: TTileArray): Boolean;
+var
+  I, Dist, MinDist, CurrNode: Integer;
+  MyTile: TTile;
+  Blocks: array of TIntegerArray;
+begin
+  Result := False;
+
+  //find the closest node.
+  if not R_GetCollisionMap(Blocks)then
+  begin
+    Debug('Unable to retrieve collision map.', 'OnPath');
+    Exit;
+  end;
+  MyTile := R_GetMyPos;
+  MinDist := MAXINT;
+  CurrNode := -1;
+  for I := 0 to High(Path)do
+  begin
+    Dist := R_DistanceTile(MyTile, Path[I])
+    if(Dist < MinDist) and R_CanReachEx(Path[I], False, Blocks)then
+    begin
+      CurrNode := I;
+      MinDist := Dist;
+    end;
+  end;
+
+  if(CurrNode = -1)then
+  begin
+    Debug('No suitable node found.', 'OnPath');
+    Exit;
+  end;
+
+  {find the "real distance" between closest node and player. Distance must be
+  less than or equal to 15.}
+  Dist := R_PathLengthBetweenEx(MyTile, Path[CurrNode], False, Blocks);
+  Result := Dist <= 30;
+end;
+
+function WalkNodes(Path: TTileArray): Boolean;
+var
+  I, Dist, MinDist, MyDist, CurrNode: Integer;
+  Blocks: array of TIntegerArray;
+  MyTile: TTile;
+begin
+  Result := False;
+  if not R_LoggedIn then
+    Exit;
+
+  //Find the closest node.
+  if not R_GetCollisionMap(Blocks)then
+  begin
+    Debug('Unable to retrieve collision map.', 'WalkNodes');
+    Exit;
+  end;
+  MyTile := R_GetMyPos;
+  MinDist := MAXINT;
+  CurrNode := -1;
+  for I := 0 to High(Path)do
+  begin
+    Dist := R_DistanceTile(MyTile, Path[I])
+    if(Dist < MinDist) and R_CanReachEx(Path[I], False, Blocks)then
+    begin
+      CurrNode := I;
+      MinDist := Dist;
+    end;
+  end;
+
+  //check if a better node can be selected (closer to source).
+  if(CurrNode < High(Path))then
+  begin
+    if(R_DistanceTile(MyTile, Path[CurrNode]) <= 7)then
+      Inc(CurrNode)
+    else begin
+      MyDist := R_PathLengthBetweenEx(MyTile, Path[CurrNode+1], False, Blocks);
+      Dist := R_PathLengthBetweenEx(Path[CurrNode], Path[CurrNode+1], False, Blocks);
+      if(MyDist < Dist)then
+        Inc(CurrNode);
+    end;
+  end;
+
+  //Debug('Closest node was located at index '+ToStr(CurrNode)+'.', 'WalkNodes');
+  Result := CurrNode <> -1;
+  if not Result then
+  begin
+    Debug('No nodes reachable from current location.', 'WalkNodes');
+    Exit;
+  end;
+
+  for I := CurrNode to High(Path)do
+  begin
+    if not R_WindWalk(Path[I])then
+      Break;
+  end;
+
+  R_WaitToStopMoving(60000);
+  Result := (R_DistanceFromTile(Path[High(Path)]) <= 5);
+end;
+
+function LoadNodes(Which: Integer): TTileArray;
 begin
   case Which of
-    LOC_TRAINERS:
+    PATH_LUMBRIDGE_STORE:
       Result := [
-        Point(3222, 3218), Point(3229, 3218), Point(3235, 3223),
-        Point(3232, 3228), Point(3226, 3234), Point(3223, 3238),
-        Point(3221, 3242), Point(3217, 3246), Point(3211, 3246),
-        Point(3204, 3247), Point(3199, 3245), Point(3195, 3248),
-        Point(3201, 3249), Point(3206, 3251), Point(3208, 3252)
+        Point(3223, 3219), Point(3228, 3230), Point(3225, 3238),
+        Point(3214, 3242)
       ];
     else
       Debug('Invalid path index.', 'LoadPath');
@@ -99,25 +197,39 @@ begin
   end;
 end;
 
-function TravelTo_Trainers: boolean;
+function TravelTo_LumbridgeStore: boolean;
 var
   Path: TTileArray;
 begin
-  Result := GetLocation = LOC_TRAINERS;
+  Result := GetLocation = LOC_LUMBRIDGE_STORE;
   if Result then
     Exit;
 
-  Debug('Traveling to the trainers!', 'Travel');
+  Path := LoadNodes(PATH_LUMBRIDGE_STORE);
+
+  Debug('Traveling to the lumbridge general store!', 'Travel');
   if not(GetLocation = LOC_LUMBRIDGE_VILLAGE)then
-    TravelTo_Home;
+    if not(OnPath(Path))then
+      TravelTo_Home;
 
-  Path := LoadPath(LOC_TRAINERS);
-  R_WalkPathEx(Path, 2, 1, False);
+  WalkNodes(Path);
 
-  Result := GetLocation = LOC_TRAINERS;
+  Result := GetLocation = LOC_LUMBRIDGE_STORE;
 
   case Result of
-    true: Debug('Arrived at the trainers!', 'Travel');
-    false: Debug('Failed to reach the trainers.', 'Travel');
+    true: Debug('Arrived at the general store in Lumbridge!', 'Travel');
+    false: Debug('Failed to reach the general store in Lumbridge.', 'Travel');
+  end;
+end;
+
+function Travel(Destination: Integer): Boolean;
+begin
+  Result := False;
+  if not R_LoggedIn then
+    Exit;
+
+  case Destination of
+    LOC_LUMBRIDGE: Result := TravelTo_Home;
+    LOC_LUMBRIDGE_STORE: Result := TravelTo_LumbridgeStore;
   end;
 end;
