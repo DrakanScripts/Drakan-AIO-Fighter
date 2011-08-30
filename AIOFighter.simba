@@ -21,14 +21,11 @@ begin
 end;
    //7870
 var
-  NPCs: TOpenNPCArray;
-  T: Integer;
+  T, I: Integer;
 
 begin
   Setup;
   T := GetSystemTime;
-  NPCs := GetNPCs([7870]);
+  Writeln(TalkToNPC('Lachtopher'));
   T := GetSystemTime - T;
-  Writeln('We have found '+ToStr(Length(NPCs))+' NPCs in '+ToStr(T)+' milliseconds.');
-  FreeOpenNPCs(NPCs);
 end.

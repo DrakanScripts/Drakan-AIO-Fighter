@@ -1,9 +1,8 @@
 type
   TOpenNPC = record
     Obj, NPCDef: Integer;
-    ID, Level: Integer;
+    ID, Level, Height: Integer;
     Name: String;
-    Tile: TTile;
   end;
   TOpenNPCArray = array of TOpenNPC;
 
@@ -15,8 +14,8 @@ begin
     NPCDef := 0;
     ID := -1;
     Level := -1;
+    Height := -1;
     Name := '';
-    Tile := Point(-1, -1);
   end;
 end;
 
@@ -31,12 +30,20 @@ end;
 //functions under the renderable class.
 function NPC_GetPos(NPC: TOpenNPC): TTile;
 begin
-  if(NPC.Tile = Point(-1, -1))then
-  begin
-    NPC.Tile.X := SmartGetFieldInt(0, hook_static_BaseX) + (SmartGetFieldInt(NPC.Obj, hook_animable_PixelX) shr 9);
-    NPC.Tile.Y := SmartGetFieldInt(0, hook_static_BaseY) + (SmartGetFieldInt(NPC.Obj, hook_animable_PixelY) shr 9);
-  end;
-  Result := NPC.Tile;
+  Result := Point(0, 0);
+  Result.X := SmartGetFieldInt(0, hook_static_BaseX) + (SmartGetFieldInt(NPC.Obj, hook_animable_PixelX) / 512);
+  Result.Y := SmartGetFieldInt(0, hook_static_BaseY) + (SmartGetFieldInt(NPC.Obj, hook_animable_PixelY) / 512);
+end;
+//////////////////////////////////////
+
+
+//functions under the character class.
+function NPC_GetHeight(NPC: TOpenNPC): Integer;
+begin
+  Result := -1;
+  if(NPC.Height = -1)then
+    NPC.Height := iAbs(SmartGetFieldInt(NPC.Obj, hook_character_GetHeight));
+  Result := NPC.Height;
 end;
 //////////////////////////////////////
 
@@ -92,3 +99,11 @@ begin
   Result := NPC.Name;
 end;
 //////////////////////////////////
+
+procedure FreeOpenNPCS(NPCs: TOpenNPCArray);
+var
+  I: Integer;
+begin
+  for I := 0 to High(NPCs)do
+    NPC_Free(NPCs[I]);
+end;

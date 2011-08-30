@@ -20,12 +20,14 @@ begin
     end;
 end;
 
-function GetNPCs(IDs: TIntegerArray): TOpenNPCArray;
+function GetNPCsEx(TheVarArr: TVariantArray): TOpenNPCArray;
 var
-  NumNPCs, H, C, I: Integer;
+  NumNPCs, H, C, I, K, H2, vType, TempID: Integer;
   TheNPCNode: Integer;
   Temp: TOpenNPC;
   NPCs: TOpenNPCArray;
+  TempName: String;
+  B: Boolean;
 begin
   SetLength(Result, 0);
   NumNPCs := R_GetNPCCount;
@@ -41,11 +43,27 @@ begin
     Temp := NPC_Create(SmartGetFieldObject(TheNPCNode, hook_npcnode_GetNPC));
     SmartFreeObject(TheNPCNode);
 
-    if not InIntArray(IDs, NPC_GetID(Temp))then
+    TempName := NPC_GetName(Temp);
+    TempID := NPC_GetID(Temp);
+
+    H2 := High(TheVarArr);
+    for K := 0 to H2 do
     begin
-      NPC_Free(Temp);
-      Continue;
+      vType := VarType(TheVarArr[K]);
+      case vType of
+        varInteger: B := (TempID = TheVarArr[K]);
+        varString: B := (Pos(LowerCase(Trim(TheVarArr[K])), LowerCase(Trim(TempName))) > 0);
+        else begin
+          Debug('Invalid Variant Type!', 'GetNPCsEx');
+          Exit;
+        end;
+      end;
+      if B then
+        Break;
     end;
+
+    if not B then
+      Continue;
 
     NPCs[C] := Temp;
     Inc(C);
@@ -54,10 +72,73 @@ begin
   Result := SortOpenNPCs(NPCs);
 end;
 
-procedure FreeOpenNPCS(NPCs: TOpenNPCArray);
-var
-  I: Integer;
+function GetNPCs(TheVar: Variant): TOpenNPCArray;
 begin
-  for I := 0 to High(NPCs)do
-    NPC_Free(NPCs[I]);
+  Result := GetNPCsEx([TheVar]);
+end;
+
+function TalkToNPC(TheVar: Variant): Boolean;
+var
+  NPCs: TOpenNPCArray;
+  NPC: TOpenNPC;
+  I, T, MT, X, Y: Integer;
+  Tile: TTile;
+  P: TPoint;
+begin
+  Result := False;
+  NPCs := GetNPCs(TheVar);
+  if Length(NPCs) < 1 then
+    Exit;
+  NPC := NPCs[0];
+  if(Length(NPCs) > 1)then
+    for I := 1 to High(NPCs)do
+      NPC_Free(NPCs[I]);
+
+  MarkTime(MT);
+  Debug('Attempting to talk to '+NPC_GetName(NPC)+'.', 'TalkToNPC');
+  while not Result do
+  begin
+    if(TimeFromMark(MT) >= 60000)then
+      Break;
+
+    Tile := NPC_GetPos(NPC);
+    if not R_TileOnMS(Tile, NPC_GetHeight(NPC)*3/2)then
+    begin
+      R_SetCameraAngle(100);
+      if not R_TileOnMM(Tile)then
+      begin
+        if not R_WindWalk(Tile)then
+        begin
+          Debug('Failed to reach NPC via R_WindWalk.', 'TalkToNPC');
+          Exit;
+        end else
+          R_Flag;
+      end else
+        if not R_WalkToTile(Tile, 0, 0)then
+        begin
+          Debug('Failed to reach NPC via R_WalkToTile', 'TalkToNPC');
+          Exit;
+        end;
+    end;
+
+    while(not Result)and(R_TileOnMS(NPC_GetPos(NPC), NPC_GetHeight(NPC)*3/2))do
+    begin
+      P := R_TileToMS(NPC_GetPos(NPC), NPC_GetHeight(NPC)/2);
+      MMouse(P.X, P.Y, 3, 3);
+      MarkTime(T);
+      while not R_OptionExists('Talk-to')do
+      begin
+        if(TimeFromMark(T) >= 150)then
+          Break;
+        Wait(20+Random(20));
+      end;
+      if(TimeFromMark(T) < 150)then
+      begin
+        GetMousePos(X, Y);
+        Mouse(X, Y, 0, 0, False);
+        Result := R_ChooseOption('Talk-to');
+      end;
+    end;
+  end;
+
 end;
